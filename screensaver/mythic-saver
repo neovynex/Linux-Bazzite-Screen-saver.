@@ -1,0 +1,7 @@
+#!/bin/bash
+# Opens the Mythic Screensaver settings (or the saver itself with --show).
+# Uses a throwaway Chromium profile that is deleted once Electron has fully exited.
+HERE="$(dirname "$(readlink -f "$0")")"
+export MYTHIC_PROFILE="$(mktemp -d "/tmp/mythic-saver-$$-XXXXXX")"
+trap 'rm -rf "$MYTHIC_PROFILE"' EXIT
+"$HERE/app/node_modules/electron/dist/electron" "$HERE/app" --ozone-platform=x11 "$@" >/dev/null 2>&1

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mythic Screensaver</title>
+<style>
+  :root { --bg: #12121a; --card: #1b1b26; --line: #2c2c3a; --text: #e6e6ef; --dim: #8a8aa0; --accent: #3a5cff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 22px; background: var(--bg); color: var(--text); font: 14px system-ui, sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 22px; font-weight: 900; letter-spacing: 1px;
+       background: linear-gradient(90deg, #ff3b3b, #ffb13b, #f5ff3b, #3bff6a, #3bc8ff, #8a3bff, #ff3b3b);
+       background-size: 200% 100%; -webkit-background-clip: text; color: transparent; animation: flow 4s linear infinite; }
+  @keyframes flow { to { background-position: -200% 0; } }
+  .sub { color: var(--dim); margin-bottom: 18px; }
+  .card .row > div { min-width: 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .row + .row { margin-top: 14px; }
+  label { font-weight: 600; }
+  .hint { color: var(--dim); font-size: 12px; margin-top: 4px; }
+  select, input[type=text] { background: #0f0f16; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 14px; width: 170px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .val { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 700; }
+  .switch { position: relative; width: 46px; height: 26px; flex: none; }
+  .switch input { display: none; }
+  .switch span { position: absolute; inset: 0; background: #33334a; border-radius: 13px; cursor: pointer; transition: .2s; }
+  .switch span::after { content: ''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; background: #fff; border-radius: 50%; transition: .2s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(20px); }
+  button { width: 100%; padding: 11px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; }
+  button:hover { filter: brightness(1.15); }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 12px; margin-top: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #666; }
+  .dot.on { background: #3bff6a; } .dot.off { background: #ff4b4b; }
+  .saved { color: #3bff6a; font-size: 12px; opacity: 0; transition: opacity .3s; text-align: center; margin-top: 8px; }
+  .saved.show { opacity: 1; }
+</style>
+</head>
+<body>
+<h1>MYTHIC SCREENSAVER</h1>
+<div class="sub">Shows up when you're AFK. Stays away during videos and games.</div>
+
+<div class="card">
+  <div class="row">
+    <div><label>Enabled</label><div class="hint">Turn the screensaver on or off</div></div>
+    <label class="switch"><input type="checkbox" id="enabled"><span></span></label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div><label>Pause while gaming</label><div class="hint">Steam &amp; Proton games, Minecraft, Lutris/Heroic, gamescope</div></div>
+    <label class="switch"><input type="checkbox" id="pauseForGames"><span></span></label>
+  </div>
+  <div class="row">
+    <div><label>Other games</label><div class="hint">Program names, comma separated</div></div>
+    <input type="text" id="extraGames" placeholder="e.g. osu, factorio">
+  </div>
+</div>
+
+<div class="card">
+  <div class="row"><label>Start after</label><span class="val" id="idleVal"></span></div>
+  <input type="range" id="idle" min="10" max="600" step="5">
+  <div class="hint">How long without mouse/keyboard before it appears</div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <label>Animation</label>
+    <select id="animation">
+      <option value="mythic">Mythic</option>
+      <option value="starfield">Starfield</option>
+      <option value="3dpipes">3D Pipes</option>
+      <option value="mystify">Mystify</option>
+      <option value="matrix">Matrix</option>
+      <option value="bounce">Bounce</option>
+      <option value="plasma">Plasma</option>
+      <option value="random">Random</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>Frame rate</label>
+    <select id="fps">
+      <option value="24">24 fps (filmic)</option>
+      <option value="30">30 fps (retro)</option>
+      <option value="38">38 fps</option>
+      <option value="60">60 fps</option>
+      <option value="0">Max (monitor)</option>
+    </select>
+  </div>
+  <div class="row" id="textRow">
+    <label>Bounce text</label>
+    <input type="text" id="bounceText" maxlength="24">
+  </div>
+</div>
+
+<button id="preview">▶ Preview now</button>
+<div class="saved" id="saved">Saved</div>
+<div class="status"><span class="dot" id="dot"></span><span id="statusText">Checking background service…</span></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = s => s < 60 ? `${s} sec` : `${Math.floor(s / 60)} min${s % 60 ? ' ' + (s % 60) + ' sec' : ''}`;
+let saveT;
+
+async function load() {
+  const c = await saver.getConfig();
+  $('enabled').checked = c.enabled;
+  $('idle').value = c.idleSeconds; $('idleVal').textContent = fmt(c.idleSeconds);
+  $('animation').value = c.animation;
+  $('bounceText').value = c.bounceText;
+  $('fps').value = String(c.fps);
+  $('pauseForGames').checked = c.pauseForGames;
+  $('extraGames').value = c.extraGames;
+  syncTextRow();
+}
+function current() {
+  return { enabled: $('enabled').checked, idleSeconds: +$('idle').value,
+           animation: $('animation').value, bounceText: $('bounceText').value || 'AFK', fps: +$('fps').value,
+           pauseForGames: $('pauseForGames').checked, extraGames: $('extraGames').value };
+}
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(async () => {
+    await saver.setConfig(current());
+    $('saved').classList.add('show'); setTimeout(() => $('saved').classList.remove('show'), 1200);
+  }, 250);
+}
+function syncTextRow() { $('textRow').style.display = ['bounce', 'random'].includes($('animation').value) ? '' : 'none'; }
+
+$('idle').oninput = () => { $('idleVal').textContent = fmt(+$('idle').value); save(); };
+$('enabled').onchange = save;
+$('animation').onchange = () => { syncTextRow(); save(); };
+$('bounceText').oninput = save;
+$('fps').onchange = save;
+$('pauseForGames').onchange = save;
+$('extraGames').oninput = save;
+$('preview').onclick = () => saver.preview(current());
+
+async function status() {
+  const s = await saver.serviceStatus();
+  $('dot').className = 'dot ' + (s === 'active' ? 'on' : 'off');
+  $('statusText').textContent = s === 'active' ? 'Background service is running' : `Background service is ${s || 'not running'}`;
+}
+load(); status(); setInterval(status, 5000);
+</script>
+</body>
+</html>

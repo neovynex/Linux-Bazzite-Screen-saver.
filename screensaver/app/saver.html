@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mythic Screensaver</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="savers.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+const id = s => s.name.toLowerCase().replace(/\W/g, '');
+bounce.text = q.get('text') || bounce.text;
+
+resize();
+current = all.find(s => id(s) === q.get('anim')) || mythic;
+try { current.init(); } catch (e) { console.error(e); }
+
+// frame-rate cap (0 = match the monitor)
+const step = +q.get('fps') ? 1000 / +q.get('fps') : 0;
+let last = performance.now(), next = last;
+(function loop(now) {
+  requestAnimationFrame(loop);
+  if (step) {
+    if (now + 1 < next) return;                                    // not time for a new frame yet
+    next += step; if (next < now) next = now + step;
+  }
+  const dt = Math.min(0.08, (now - last) / 1000); last = now;
+  try { current.frame(dt); } catch (e) { console.error(e); }
+})(last);
+
+// close on any real input; ignore the first moment and tiny pointer jitter
+const started = performance.now();
+let origin = null;
+const quit = () => { if (performance.now() - started > 800) window.close(); };
+addEventListener('keydown', quit);
+addEventListener('mousedown', quit);
+addEventListener('wheel', quit);
+addEventListener('touchstart', quit);
+addEventListener('mousemove', e => {
+  if (!origin) { origin = [e.screenX, e.screenY]; return; }
+  if (Math.hypot(e.screenX - origin[0], e.screenY - origin[1]) > 20) quit();
+});
+</script>
+</body>
+</html>

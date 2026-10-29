@@ -1,0 +1,16 @@
+[Unit]
+Description=Mythic screensaver (idle watcher)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 -I @DIR@/watcher.py
+Restart=on-failure
+RestartSec=5
+# privacy: nothing from this service goes to the journal
+StandardOutput=null
+StandardError=null
+LogLevelMax=emerg
+
+[Install]
+WantedBy=graphical-session.target
